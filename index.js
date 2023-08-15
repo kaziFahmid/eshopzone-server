@@ -1,7 +1,7 @@
 const express = require('express')
 const app = express()
 const port = process.env.PORT||5000
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 var cors = require('cors')
 app.use(cors())
 app.use(express.json())
@@ -9,8 +9,8 @@ app.use(express.json())
 require('dotenv').config()
 
 
-// 'eshopzone'
-// 'DISWJ4eVfpy53TAz'
+
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.f7zs7lw.mongodb.net/?retryWrites=true&w=majority`;
 
@@ -25,8 +25,8 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // // Connect the client to the server	(optional starting in v4.7)
-    // // await client.connect();
+    // Connect the client to the server	(optional starting in v4.7)
+    // await client.connect();
     const eshopzoneProductCollections = client.db("eshopzoneproductDB").collection("eshopzoneProductCollections");
     const eshopzoneUserCollections = client.db("eshopzoneUserDB").collection("eshopzoneUserCollections");
 
@@ -38,6 +38,7 @@ async function run() {
       if(req.query?.email){
         query={email:req.query?.email}
       }
+
       const result= await eshopzoneOrderCollections.find(query).toArray()
       res.send(result)
     
@@ -75,12 +76,70 @@ async function run() {
 
 
 
+    app.delete('/orderlists/:id', async (req, res) => {
+      const id=req.params.id
+
+      const filter={_id: new ObjectId(id)}
+   
+      const result = await eshopzoneOrderCollections.deleteOne(filter);
+      res.send(result)
+    });
+
+    app.delete('/orderlists', async (req, res) => {
+      try {
+        const result = await eshopzoneOrderCollections.deleteMany({});
+        res.send(result);
+      } catch (error) {
+        console.error('Error deleting all orders:', error);
+        res.status(500).json({ message: 'Error deleting all orders' });
+      }
+    });
+
+
+
+    app.patch('/orderlists/:id', async (req, res) => {
+      const id=req.params.id
+      const increasing=req.body.increament
+      const Decreasing=req.body.decrease
+      const filter={_id: new ObjectId(id)}
+      let order= await eshopzoneOrderCollections.findOne(filter)
+   if(!order){
+  res.send({message:"order not found"})
+   }
+   const updateDoc = {
+    $set: {
+      quantity: order.quantity+increasing||order.quantity-Decreasing
+    },
+    
+  }
+      const result = await eshopzoneOrderCollections.updateOne(filter,updateDoc);
+      res.send(result)
+    });
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 
   app.get('/products', async(req, res) => {
-      const result= await eshopzoneProductCollections.find().toArray()
+    let query={}
+    if (req.query?.search) {
+      query.title = { $regex: req.query.search, $options: "i" };
+    }
+    if (req.query?.category && req.query?.category!=='all' ) {
+      query.category =  req.query.category
+    }
+      const result= await eshopzoneProductCollections.find(query).toArray()
       res.send(result)
     
     })
